@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodPing - 감정 기록</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container waterfall-container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-logo">Mood<span>Ping</span></a>
+            <div class="nav-actions" id="nav-actions"></div>
+        </nav>
+
+        <header>
+            <h2>오늘의 기분은? 🌿</h2>
+            <p class="text-muted">감정을 선택하고 마음을 기록해보세요.</p>
+        </header>
+
+        <!-- Section 1: 이모지 선택 -->
+        <section id="section-emoji" class="active-section">
+            <h3>어떤 감정인가요?</h3>
+            <div class="emoji-grid">
+                <div class="emoji-btn" data-label="happy"     title="기쁨">😊<span class="emoji-label">기쁨</span></div>
+                <div class="emoji-btn" data-label="excited"   title="신남">😄<span class="emoji-label">신남</span></div>
+                <div class="emoji-btn" data-label="thrilled"  title="설렘">😍<span class="emoji-label">설렘</span></div>
+                <div class="emoji-btn" data-label="love"      title="사랑">🥰<span class="emoji-label">사랑</span></div>
+                <div class="emoji-btn" data-label="confident" title="자신감">😎<span class="emoji-label">자신감</span></div>
+                <div class="emoji-btn" data-label="calm"      title="평온">😌<span class="emoji-label">평온</span></div>
+                <div class="emoji-btn" data-label="numb"      title="무감각">😐<span class="emoji-label">무감각</span></div>
+                <div class="emoji-btn" data-label="tired"     title="피곤">😴<span class="emoji-label">피곤</span></div>
+                <div class="emoji-btn" data-label="gloomy"    title="우울">😔<span class="emoji-label">우울</span></div>
+                <div class="emoji-btn" data-label="sad"       title="슬픔">😢<span class="emoji-label">슬픔</span></div>
+                <div class="emoji-btn" data-label="tearful"   title="눈물">😭<span class="emoji-label">눈물</span></div>
+                <div class="emoji-btn" data-label="annoyed"   title="짜증">😤<span class="emoji-label">짜증</span></div>
+                <div class="emoji-btn" data-label="angry"     title="분노">😡<span class="emoji-label">분노</span></div>
+                <div class="emoji-btn" data-label="anxious"   title="불안">😰<span class="emoji-label">불안</span></div>
+                <div class="emoji-btn" data-label="scared"    title="두려움">😨<span class="emoji-label">두려움</span></div>
+            </div>
+        </section>
+
+        <!-- Section 2: 강도 선택 -->
+        <section id="section-intensity" class="disabled-section">
+            <h3>얼마나 강하게 느껴지나요?</h3>
+            <div class="slider-wrapper">
+                <div class="slider-labels">
+                    <span>전혀 없음</span>
+                    <span id="slider-value-display" class="slider-value">5</span>
+                    <span>매우 강함</span>
+                </div>
+                <input type="range" id="intensity-slider" min="0" max="10" value="5" step="1">
+                <div class="slider-ticks">
+                    <span>0</span><span>1</span><span>2</span><span>3</span><span>4</span>
+                    <span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>10</span>
+                </div>
+            </div>
+            <button id="intensity-confirm-btn" class="btn-intensity-confirm">이 강도로 선택</button>
+        </section>
+
+        <!-- Section 3: 메모 & 저장 -->
+        <section id="section-note" class="disabled-section">
+            <h3>하고 싶은 말이 있나요? <span class="text-muted">(선택)</span></h3>
+            <textarea id="note-input" rows="3" maxlength="500"
+                      placeholder="짧게 남겨주셔도 좋아요. (최대 500자)"></textarea>
+            <button id="submit-btn" class="btn-primary">AI 마음 분석받기 ✨</button>
+        </section>
+
+        <!-- Section 4: 분석 결과 -->
+        <section id="section-result">
+            <div class="result-card">
+                <div class="loading-spinner" id="loading-spinner">
+                    <div class="spinner"></div>
+                    <p>AI가 마음을 읽고 있습니다...</p>
+                </div>
+                <div id="result-content" style="display: none;">
+                    <h3>AI의 마음 편지 💌</h3>
+                    <p id="feedback-text"></p>
+                    <div class="mt-16">
+                        <button id="confirm-btn" class="btn-secondary">확인 완료</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script src="/js/record.js"></script>
+</body>
+</html>
