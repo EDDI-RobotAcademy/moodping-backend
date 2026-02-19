@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodPing - 마음을 기록하다</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-logo">Mood<span>Ping</span></a>
+            <div class="nav-actions" id="nav-actions"></div>
+        </nav>
+
+        <!-- Hero Section -->
+        <div class="hero">
+            <span class="hero-emoji">🌙</span>
+            <h1>당신의 마음에<br>귀 기울이는 공간</h1>
+            <p>감정을 기록하고, AI 상담사의<br>따뜻한 분석을 받아보세요.</p>
+        </div>
+
+        <!-- CTA Cards -->
+        <div class="card" id="card-record">
+            <span class="card-icon">✍️</span>
+            <h3>오늘의 감정 기록하기</h3>
+            <p>지금 느끼는 감정을 선택하고,<br>AI의 마음 편지를 받아보세요.</p>
+            <a href="/record" class="btn-primary" id="start-btn">감정 기록 시작</a>
+        </div>
+
+        <div class="card" id="card-report">
+            <span class="card-icon">📊</span>
+            <h3>이번 주 마음 리포트</h3>
+            <p>일주일간의 감정 흐름을 한눈에 확인하고,<br>AI 상담사의 주간 분석을 받아보세요.</p>
+            <a href="/report" class="btn-secondary" id="report-btn">주간 리포트 보기</a>
+        </div>
+
+        <!-- Kakao Login Prompt (비로그인 시) -->
+        <div class="card hidden" id="card-login">
+            <div class="login-prompt">
+                <span class="card-icon">🔐</span>
+                <p>카카오 로그인을 하면 감정 기록이<br>안전하게 저장되고, 주간 리포트를<br>받아볼 수 있어요.</p>
+                <a href="/auth/kakao" class="btn-kakao-large" id="kakao-login-btn">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="18" height="18"><path d="M12 3C6.48 3 2 6.58 2 10.94c0 2.8 1.86 5.27 4.66 6.67-.15.56-.96 3.6-.99 3.83 0 0-.02.17.09.23.11.07.24.01.24.01.32-.04 3.7-2.44 4.28-2.86.56.08 1.14.12 1.72.12 5.52 0 10-3.58 10-7.94S17.52 3 12 3z"/></svg>
+                    카카오로 3초 만에 시작하기
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Debug Dashboard -->
+    <div class="debug-panel">
+        <h4>Debug Dashboard</h4>
+        <button class="refresh-btn" onclick="loadDebugData()">새로고침</button>
+
+        <div class="debug-section">
+            <div class="label">최근 감정 기록</div>
+            <div id="debug-records">로딩 중...</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="label">퍼널 지표 (이탈 임계값: 10분)</div>
+            <div id="debug-metrics">로딩 중...</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="label">단계별 이탈 분석</div>
+            <div id="debug-step-funnel">로딩 중...</div>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            handleTokenFromUrl();
+            renderNavAuth(document.getElementById('nav-actions'));
+            logEvent('onboarding_view');
+
+            if (!isLoggedIn()) {
+                document.getElementById('card-login').classList.remove('hidden');
+            }
+
+            document.getElementById('start-btn').addEventListener('click', (e) => {
+                e.preventDefault();
+                logEvent('record_start_click').then(() => {
+                    window.location.href = '/record';
+                });
+            });
+
+            loadDebugData();
+        });
+
+        async function loadDebugData() {
+            await loadRecentRecords();
+            await loadMetrics();
+        }
+
+        async function loadRecentRecords() {
+            const el = document.getElementById('debug-records');
+            try {
+                const res = await fetch('/api/debug/recent-records');
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    el.innerHTML = '<span style="color:#6c7086">기록 없음</span>';
+                    return;
+                }
+
+                el.innerHTML = data.map(r => `
+                    <div class="debug-record-item">
+                        <span class="label">ID:</span> <span class="value">${r.record_id}</span>
+                        &nbsp;|&nbsp;
+                        <span class="value">${r.emoji || ''}</span>
+                        <span class="label"> 강도:</span> <span class="value">${r.intensity}/10</span>
+                        <br>
+                        <span class="label">메모:</span> <span class="value">${r.mood_text || '-'}</span>
+                        <br>
+                        <span class="label">분석:</span> <span class="value">${r.analysis_text ? r.analysis_text.substring(0, 60) + '...' : '없음'}</span>
+                        <br>
+                        <span style="color:#6c7086;font-size:10px">${r.recorded_at || ''} | ${r.anon_id ? 'anon:' + r.anon_id.substring(0, 8) : 'user:' + (r.user_id || '?')}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                el.innerHTML = '<span style="color:#f38ba8">API 연결 실패: ' + e.message + '</span>';
+            }
+        }
+
+        async function loadMetrics() {
+            const el = document.getElementById('debug-metrics');
+            const stepEl = document.getElementById('debug-step-funnel');
+            try {
+                const res = await fetch('/api/debug/metrics');
+                const d = await res.json();
+                const rf = d.funnel.record_funnel;
+                const af = d.funnel.analysis_funnel;
+                const ret = d.retention;
+
+                el.innerHTML = `
+                    <div style="margin-bottom:6px">
+                        <span class="label">[기록 퍼널]</span><br>
+                        시작: <span class="value">${rf.record_start_count}</span>명 →
+                        완료: <span class="value">${rf.record_complete_count}</span>명 |
+                        이탈률: <span class="value">${(rf.record_drop_rate * 100).toFixed(1)}%</span> |
+                        평균: <span class="value">${rf.avg_record_duration_minutes}분</span>
+                    </div>
+                    <div style="margin-bottom:6px">
+                        <span class="label">[분석 퍼널]</span><br>
+                        완료: <span class="value">${af.record_complete_count}</span>명 →
+                        조회: <span class="value">${af.analysis_view_count}</span>명 |
+                        이탈률: <span class="value">${(af.analysis_drop_rate * 100).toFixed(1)}%</span> |
+                        평균: <span class="value">${af.avg_analysis_duration_minutes}분</span>
+                    </div>
+                    <div>
+                        <span class="label">[7일 리텐션]</span><br>
+                        대상: <span class="value">${ret.total_users}</span>명 |
+                        재방문: <span class="value">${ret.retained_users}</span>명 |
+                        유지율: <span class="value">${ret.retention_rate_percent}%</span>
+                    </div>
+                `;
+
+                const steps = d.step_funnel || [];
+                if (steps.length === 0) {
+                    stepEl.innerHTML = '<span style="color:#6c7086">데이터 없음</span>';
+                    return;
+                }
+                const maxSessions = steps[0].sessions || 1;
+                stepEl.innerHTML = steps.map((s, i) => {
+                    const barWidth = Math.max(2, Math.round((s.sessions / maxSessions) * 100));
+                    const dropPct = (s.drop_rate * 100).toFixed(1);
+                    const dropColor = s.drop_rate > 0.3 ? '#f38ba8' : s.drop_rate > 0.1 ? '#fab387' : '#a6e3a1';
+                    const arrow = i > 0 ? `<span style="color:${dropColor}">↓ ${dropPct}% 이탈</span><br>` : '';
+                    return `
+                        ${arrow}
+                        <div style="margin:3px 0;display:flex;align-items:center;gap:8px">
+                            <span style="min-width:80px;font-size:11px">${s.label}</span>
+                            <div style="background:#45475a;border-radius:4px;flex:1;height:14px;overflow:hidden">
+                                <div style="background:#89b4fa;width:${barWidth}%;height:100%;border-radius:4px"></div>
+                            </div>
+                            <span class="value" style="min-width:30px;text-align:right">${s.sessions}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                el.innerHTML = '<span style="color:#f38ba8">API 연결 실패: ' + e.message + '</span>';
+            }
+        }
+    </script>
+</body>
+</html>

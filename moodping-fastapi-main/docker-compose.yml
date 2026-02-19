@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: moodping-mysql-fastapi
+    ports:
+      - "3307:3306"  # Spring Boot(moodping-backend)와 포트 충돌 방지: 3307 사용
+    environment:
+      MYSQL_ROOT_PASSWORD: moodping_root
+      MYSQL_DATABASE: moodping
+      MYSQL_USER: moodping
+      MYSQL_PASSWORD: moodping123
+    volumes:
+      - moodping_fastapi_mysql_data:/var/lib/mysql
+      - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql  # 컨테이너 최초 실행 시 자동 적용
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-pmoodping_root"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+
+volumes:
+  moodping_fastapi_mysql_data:
+    driver: local

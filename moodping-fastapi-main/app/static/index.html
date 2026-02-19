@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodPing - 온보딩</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header class="auth-header">
+        <span class="auth-status" id="auth-status"></span>
+        <a href="/auth/kakao" class="btn-kakao" id="btn-login">카카오로 로그인</a>
+        <a href="/auth/logout" class="btn-logout" id="btn-logout" style="display:none;">로그아웃</a>
+    </header>
+    <div class="container onboarding-container">
+        <h1>MoodPing 🌙</h1>
+        <p>오늘의 감정을 기록하고<br>AI 분석으로 마음을 돌아보세요.</p>
+        <button id="start-btn" class="btn-primary">감정 기록 시작</button>
+    </div>
+
+    <!-- 팀원 시각화용 디버그 대시보드 (학습/테스트 목적) -->
+    <div class="debug-panel">
+        <h4>🛠 Debug Dashboard</h4>
+        <button class="refresh-btn" onclick="loadDebugData()">새로고침</button>
+
+        <div class="debug-section">
+            <div class="label">📋 최근 감정 기록</div>
+            <div id="debug-records">로딩 중...</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="label">📊 퍼널 지표 (이탈 임계값: 10분)</div>
+            <div id="debug-metrics">로딩 중...</div>
+        </div>
+
+        <div class="debug-section">
+            <div class="label">🔍 단계별 이탈 분석</div>
+            <div id="debug-step-funnel">로딩 중...</div>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            if (location.search.includes('error=kakao_not_configured')) {
+                alert('카카오 로그인: .env에 KAKAO_REST_API_KEY를 설정하세요.');
+                history.replaceState({}, '', '/');
+            }
+            await fetchAuthUser();
+            const statusEl = document.getElementById('auth-status');
+            const loginEl = document.getElementById('btn-login');
+            const logoutEl = document.getElementById('btn-logout');
+            if (authUser.logged_in) {
+                statusEl.textContent = authUser.nickname + '님';
+                loginEl.style.display = 'none';
+                logoutEl.style.display = 'inline';
+            } else {
+                statusEl.textContent = '';
+                loginEl.style.display = 'inline';
+                logoutEl.style.display = 'none';
+            }
+            logEvent('onboarding_view');
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                logEvent('record_start_click');  // 전송 시도 (실패해도 무시)
+                window.location.href = '/record.html';  // 바로 이동
+            });
+
+            loadDebugData();
+        });
+
+        async function loadDebugData() {
+            await loadRecentRecords();
+            await loadMetrics();
+        }
+
+        async function loadRecentRecords() {
+            const el = document.getElementById('debug-records');
+            try {
+                const res = await fetch('/api/debug/recent-records');
+                const data = await res.json();
+
+                if (data.length === 0) {
+                    el.innerHTML = '<span style="color:#6c7086">기록 없음</span>';
+                    return;
+                }
+
+                el.innerHTML = data.map(r => `
+                    <div class="debug-record-item">
+                        <span class="label">ID:</span> <span class="value">${r.record_id}</span>
+                        &nbsp;|&nbsp;
+                        <span class="value">${r.emoji || ''}</span>
+                        <span class="label"> 강도:</span> <span class="value">${r.intensity}/10</span>
+                        <br>
+                        <span class="label">메모:</span> <span class="value">${r.mood_text || '-'}</span>
+                        <br>
+                        <span class="label">분석:</span> <span class="value">${r.analysis_text ? r.analysis_text.substring(0, 60) + '...' : '없음'}</span>
+                        <br>
+                        <span style="color:#6c7086;font-size:10px">${r.recorded_at || ''} | ${r.anon_id ? 'anon:' + r.anon_id.substring(0, 8) : 'user:' + (r.user_id || '?')}</span>
+                    </div>
+                `).join('');
+            } catch (e) {
+                el.innerHTML = '<span style="color:#f38ba8">API 연결 실패: ' + e.message + '</span>';
+            }
+        }
+
+        async function loadMetrics() {
+            const el = document.getElementById('debug-metrics');
+            const stepEl = document.getElementById('debug-step-funnel');
+            try {
+                const res = await fetch('/api/debug/metrics');
+                const d = await res.json();
+                const rf = d.funnel.record_funnel;
+                const af = d.funnel.analysis_funnel;
+                const ret = d.retention;
+
+                el.innerHTML = `
+                    <div style="margin-bottom:6px">
+                        <span class="label">[기록 퍼널]</span><br>
+                        시작: <span class="value">${rf.record_start_count}</span>명 →
+                        완료: <span class="value">${rf.record_complete_count}</span>명 |
+                        이탈률: <span class="value">${(rf.record_drop_rate * 100).toFixed(1)}%</span> |
+                        평균: <span class="value">${rf.avg_record_duration_minutes}분</span>
+                    </div>
+                    <div style="margin-bottom:6px">
+                        <span class="label">[분석 퍼널]</span><br>
+                        완료: <span class="value">${af.record_complete_count}</span>명 →
+                        조회: <span class="value">${af.analysis_view_count}</span>명 |
+                        이탈률: <span class="value">${(af.analysis_drop_rate * 100).toFixed(1)}%</span> |
+                        평균: <span class="value">${af.avg_analysis_duration_minutes}분</span>
+                    </div>
+                    <div>
+                        <span class="label">[7일 리텐션]</span><br>
+                        대상: <span class="value">${ret.total_users}</span>명 |
+                        재방문: <span class="value">${ret.retained_users}</span>명 |
+                        유지율: <span class="value">${ret.retention_rate_percent}%</span>
+                    </div>
+                `;
+
+                // 단계별 이탈 분석
+                const steps = d.step_funnel || [];
+                if (steps.length === 0) {
+                    stepEl.innerHTML = '<span style="color:#6c7086">데이터 없음</span>';
+                    return;
+                }
+                const maxSessions = steps[0].sessions || 1;
+                stepEl.innerHTML = steps.map((s, i) => {
+                    const barWidth = Math.max(2, Math.round((s.sessions / maxSessions) * 100));
+                    const dropPct = (s.drop_rate * 100).toFixed(1);
+                    const dropColor = s.drop_rate > 0.3 ? '#f38ba8' : s.drop_rate > 0.1 ? '#fab387' : '#a6e3a1';
+                    const arrow = i > 0 ? `<span style="color:${dropColor}">↓ ${dropPct}% 이탈</span><br>` : '';
+                    return `
+                        ${arrow}
+                        <div style="margin:3px 0;display:flex;align-items:center;gap:8px">
+                            <span style="min-width:80px;font-size:11px">${s.label}</span>
+                            <div style="background:#45475a;border-radius:4px;flex:1;height:14px;overflow:hidden">
+                                <div style="background:#89b4fa;width:${barWidth}%;height:100%;border-radius:4px"></div>
+                            </div>
+                            <span class="value" style="min-width:30px;text-align:right">${s.sessions}</span>
+                        </div>
+                    `;
+                }).join('');
+            } catch (e) {
+                el.innerHTML = '<span style="color:#f38ba8">API 연결 실패: ' + e.message + '</span>';
+            }
+        }
+    </script>
+</body>
+</html>

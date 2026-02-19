@@ -1,0 +1,29 @@
+# Web Framework
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+
+# DB
+sqlalchemy==2.0.36
+mysql-connector-python==9.1.0
+pymysql==1.1.1
+
+# Validation & Settings
+pydantic==2.10.4
+pydantic-settings==2.7.0
+
+# Environment
+python-dotenv==1.0.1
+
+# HTTP Client (비동기 LLM 호출용)
+httpx==0.28.1
+
+# Template Engine
+jinja2==3.1.5
+
+# Auth
+PyJWT==2.9.0
+
+# LLM SDKs
+openai==1.59.3
+google-generativeai==0.8.3
+anthropic==0.43.0
