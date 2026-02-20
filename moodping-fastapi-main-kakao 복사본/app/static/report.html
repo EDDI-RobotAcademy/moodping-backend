@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoodPing - 주간 리포트</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Navigation -->
+        <nav class="nav-bar">
+            <a href="/" class="nav-logo">Mood<span>Ping</span></a>
+            <div class="nav-actions" id="nav-actions"></div>
+        </nav>
+
+        <!-- Back -->
+        <button class="btn-back" onclick="window.location.href='/'">← 돌아가기</button>
+
+        <!-- Report Header -->
+        <div class="report-header">
+            <h1>🌿 이번 주 마음 리포트</h1>
+            <p class="report-period" id="report-period">로딩 중...</p>
+        </div>
+
+        <!-- Loading -->
+        <div id="report-loading" class="text-center" style="padding:40px 0">
+            <div class="loading-spinner">
+                <div class="spinner"></div>
+                <p>리포트를 준비하고 있어요...</p>
+            </div>
+        </div>
+
+        <!-- Report Content (hidden until loaded) -->
+        <div id="report-content" class="hidden">
+            <!-- Stats -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-count">-</div>
+                    <div class="stat-label">총 기록</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-intensity">-</div>
+                    <div class="stat-label">평균 강도</div>
+                </div>
+            </div>
+
+            <!-- Mood Distribution -->
+            <div class="card">
+                <div class="report-section">
+                    <div class="report-section-title">감정 분포</div>
+                    <div id="mood-distribution"></div>
+                </div>
+            </div>
+
+            <!-- AI Summary -->
+            <div class="ai-summary-card" id="ai-summary-card">
+                <h3>💌 AI 상담사의 주간 분석</h3>
+                <div class="ai-summary-text" id="ai-summary-text">
+                    분석을 생성하지 못했습니다.
+                </div>
+            </div>
+
+            <div class="mt-16">
+                <a href="/record" class="btn-primary">오늘의 감정 기록하러 가기</a>
+            </div>
+            <div class="mt-12">
+                <a href="/" class="btn-outline">홈으로 돌아가기</a>
+            </div>
+        </div>
+
+        <!-- Error -->
+        <div id="report-error" class="hidden text-center" style="padding:40px 0">
+            <p style="font-size:48px;margin-bottom:16px">😿</p>
+            <p style="color:var(--text-secondary)">리포트를 불러오지 못했어요.</p>
+            <button class="btn-outline mt-16" onclick="loadReport()">다시 시도</button>
+        </div>
+    </div>
+
+    <script src="/js/common.js"></script>
+    <script>
+        const POSITIVE_MOODS = ['happy', 'excited', 'thrilled', 'love', 'confident', 'calm'];
+        const NEUTRAL_MOODS  = ['numb', 'tired'];
+
+        function getMoodClass(labelKo) {
+            const positiveLabels = ['기쁨','신남','설렘','사랑','자신감','평온'];
+            const neutralLabels  = ['무감각','피곤'];
+            if (positiveLabels.includes(labelKo)) return 'positive';
+            if (neutralLabels.includes(labelKo))  return 'neutral';
+            return 'negative';
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            renderNavAuth(document.getElementById('nav-actions'));
+            loadReport();
+        });
+
+        async function loadReport() {
+            document.getElementById('report-loading').classList.remove('hidden');
+            document.getElementById('report-content').classList.add('hidden');
+            document.getElementById('report-error').classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/reports/weekly/latest', {
+                    headers: getAuthHeaders()
+                });
+
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const data = await res.json();
+
+                document.getElementById('report-period').textContent =
+                    `${formatDate(data.week_start)} ~ ${formatDate(data.week_end)}`;
+
+                document.getElementById('stat-count').textContent = data.record_count;
+                document.getElementById('stat-intensity').textContent =
+                    data.avg_intensity ? `${data.avg_intensity.toFixed(1)}` : '-';
+
+                renderDistribution(data.mood_distribution, data.record_count);
+
+                if (data.summary_text) {
+                    document.getElementById('ai-summary-text').innerHTML =
+                        data.summary_text.replace(/\n/g, '<br>');
+                } else {
+                    document.getElementById('ai-summary-text').textContent =
+                        'AI 분석을 생성하지 못했습니다. 다시 시도해주세요.';
+                }
+
+                document.getElementById('report-loading').classList.add('hidden');
+                document.getElementById('report-content').classList.remove('hidden');
+
+            } catch (e) {
+                console.error('리포트 로딩 실패:', e);
+                document.getElementById('report-loading').classList.add('hidden');
+                document.getElementById('report-error').classList.remove('hidden');
+            }
+        }
+
+        function renderDistribution(distribution, totalCount) {
+            const el = document.getElementById('mood-distribution');
+            if (!distribution || distribution.length === 0) {
+                el.innerHTML = '<p class="text-muted">데이터 없음</p>';
+                return;
+            }
+
+            const maxCount = Math.max(...distribution.map(d => d.count));
+
+            el.innerHTML = distribution.map(d => {
+                const width = Math.max(15, Math.round((d.count / maxCount) * 100));
+                const moodClass = getMoodClass(d.label_ko);
+                return `
+                    <div class="mood-bar-item">
+                        <span class="mood-bar-emoji">${d.emoji}</span>
+                        <div class="mood-bar-track">
+                            <div class="mood-bar-fill ${moodClass}" style="width:${width}%">
+                                ${d.label_ko}
+                            </div>
+                        </div>
+                        <span class="mood-bar-label">${d.count}회</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function formatDate(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            const month = d.getMonth() + 1;
+            const day = d.getDate();
+            const dayNames = ['일','월','화','수','목','금','토'];
+            const dayName = dayNames[d.getDay()];
+            return `${month}/${day} (${dayName})`;
+        }
+    </script>
+</body>
+</html>
